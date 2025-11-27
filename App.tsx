@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, FileText, Users, PlusCircle, Settings, Menu } from 'lucide-react';
+import { LayoutDashboard, FileText, Users, PlusCircle, Settings as SettingsIcon, Menu } from 'lucide-react';
 import Dashboard from './components/Dashboard';
 import InvoiceList from './components/InvoiceList';
 import InvoiceBuilder from './components/InvoiceBuilder';
+import Settings from './components/Settings';
 import { getInvoices, getClients, deleteInvoice as deleteInvoiceService } from './services/storageService';
 import { Invoice, Client } from './types';
 import { HashRouter, Routes, Route, Link, useLocation, useNavigate } from 'react-router-dom';
@@ -38,7 +39,7 @@ const Sidebar = () => {
 
       <div className="p-4 border-t border-gray-800">
         <Link to="/settings" className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-colors font-medium ${isActive('/settings')}`}>
-          <Settings size={20} />
+          <SettingsIcon size={20} />
           Settings
         </Link>
       </div>
@@ -122,14 +123,7 @@ const MainContent = () => {
              </div>
           </div>
         } />
-         <Route path="/settings" element={
-          <div className="p-8">
-             <h2 className="text-2xl font-bold text-gray-800 mb-6">Settings</h2>
-             <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-               <p className="text-gray-500">App version: 1.0.0 (Demo)</p>
-             </div>
-          </div>
-        } />
+         <Route path="/settings" element={<Settings />} />
       </Routes>
     </div>
   );

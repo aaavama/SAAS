@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Wand2, Save, Printer, ArrowLeft, Mail } from 'lucide-react';
-import { Invoice, InvoiceItem, Client, InvoiceStatus } from '../types';
+import { Invoice, InvoiceItem, Client, InvoiceStatus, AppSettings } from '../types';
 import { parseInvoiceText, generateEmailReminder } from '../services/geminiService';
-import { getClients, saveInvoice, getInvoices } from '../services/storageService';
+import { getClients, saveInvoice, getInvoices, getSettings, incrementInvoiceNumber } from '../services/storageService';
 
 interface InvoiceBuilderProps {
   invoiceId?: string;
@@ -14,11 +14,12 @@ const InvoiceBuilder: React.FC<InvoiceBuilderProps> = ({ invoiceId, onClose }) =
   const [aiPrompt, setAiPrompt] = useState('');
   const [showAiModal, setShowAiModal] = useState(false);
   const [clients, setClients] = useState<Client[]>([]);
+  const [settings, setSettings] = useState<AppSettings | null>(null);
   
   // Form State
   const [invoice, setInvoice] = useState<Invoice>({
     id: crypto.randomUUID(),
-    number: `INV-${Math.floor(Math.random() * 10000)}`,
+    number: '...', // Placeholder until settings load
     date: new Date().toISOString().split('T')[0],
     dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     status: InvoiceStatus.DRAFT,
@@ -31,11 +32,22 @@ const InvoiceBuilder: React.FC<InvoiceBuilderProps> = ({ invoiceId, onClose }) =
 
   const [emailDraft, setEmailDraft] = useState<string | null>(null);
 
+  // Load Data
   useEffect(() => {
+    const loadedSettings = getSettings();
+    setSettings(loadedSettings);
     setClients(getClients());
+
     if (invoiceId) {
       const existing = getInvoices().find(i => i.id === invoiceId);
       if (existing) setInvoice(existing);
+    } else {
+      // New Invoice: Set defaults from settings
+      setInvoice(prev => ({
+        ...prev,
+        number: `${loadedSettings.invoicePrefix}${loadedSettings.nextInvoiceNumber}`,
+        currency: loadedSettings.currency
+      }));
     }
   }, [invoiceId]);
 
@@ -63,6 +75,12 @@ const InvoiceBuilder: React.FC<InvoiceBuilderProps> = ({ invoiceId, onClose }) =
 
   const handleSave = () => {
     saveInvoice(invoice);
+    
+    // If this is a new invoice (we determined that by checking if invoiceId prop was passed), increment sequence
+    if (!invoiceId) {
+      incrementInvoiceNumber();
+    }
+    
     onClose();
   };
 
@@ -99,12 +117,17 @@ const InvoiceBuilder: React.FC<InvoiceBuilderProps> = ({ invoiceId, onClose }) =
       return;
     }
     setLoading(true);
-    const email = await generateEmailReminder(client.name, invoice.number, `$${calculateTotal().toFixed(2)}`, invoice.dueDate);
+    const email = await generateEmailReminder(client.name, invoice.number, `${settings?.currencySymbol || '$'}${calculateTotal().toFixed(2)}`, invoice.dueDate);
     setEmailDraft(email);
     setLoading(false);
   };
 
   const getClientDetails = () => clients.find(c => c.id === invoice.clientId);
+  
+  // Styles based on settings
+  const accentColor = settings?.accentColor || '#4f46e5';
+
+  if (!settings) return <div>Loading...</div>;
 
   return (
     <div className="bg-gray-50 min-h-screen pb-20">
@@ -119,9 +142,9 @@ const InvoiceBuilder: React.FC<InvoiceBuilderProps> = ({ invoiceId, onClose }) =
         <div className="flex items-center gap-3">
            <button 
             onClick={() => setShowAiModal(true)}
-            className="flex items-center gap-2 px-4 py-2 text-indigo-600 bg-indigo-50 hover:bg-indigo-100 rounded-lg font-medium transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 hover:bg-gray-50 rounded-lg font-medium transition-colors text-gray-700"
           >
-            <Wand2 size={18} />
+            <Wand2 size={18} style={{ color: accentColor }} />
             <span className="hidden sm:inline">Magic Fill</span>
           </button>
           <button 
@@ -133,7 +156,8 @@ const InvoiceBuilder: React.FC<InvoiceBuilderProps> = ({ invoiceId, onClose }) =
           </button>
           <button 
             onClick={handleSave}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-900 text-white hover:bg-gray-800 rounded-lg font-medium transition-colors shadow-lg shadow-gray-900/20"
+            className="flex items-center gap-2 px-4 py-2 text-white hover:opacity-90 rounded-lg font-medium transition-colors shadow-lg"
+            style={{ backgroundColor: accentColor, boxShadow: `0 10px 15px -3px ${accentColor}40` }}
           >
             <Save size={18} />
             <span>Save Invoice</span>
@@ -154,15 +178,20 @@ const InvoiceBuilder: React.FC<InvoiceBuilderProps> = ({ invoiceId, onClose }) =
                 type="text" 
                 value={invoice.number} 
                 onChange={e => setInvoice(prev => ({...prev, number: e.target.value}))}
-                className="bg-transparent border-b border-dashed border-gray-300 focus:border-indigo-500 outline-none w-32 font-medium"
+                className="bg-transparent border-b border-dashed border-gray-300 outline-none w-32 font-medium"
+                style={{ borderColor: 'focus-within' ? accentColor : undefined }} // Simple dynamic style not supported for pseudo-classes inline
               />
             </div>
           </div>
           
           <div className="text-right">
-             <div className="text-2xl font-bold text-indigo-600 mb-1">Lumina Inc.</div>
-             <div className="text-gray-500 text-sm">billing@lumina.com</div>
-             <div className="text-gray-500 text-sm">123 Innovation Dr.</div>
+             {settings.showLogo && (
+               <div className="text-2xl font-bold mb-1" style={{ color: accentColor }}>
+                 {settings.companyName}
+               </div>
+             )}
+             <div className="text-gray-500 text-sm whitespace-pre-wrap">{settings.companyAddress}</div>
+             <div className="text-gray-500 text-sm mt-1">{settings.companyEmail}</div>
           </div>
         </div>
 
@@ -173,13 +202,14 @@ const InvoiceBuilder: React.FC<InvoiceBuilderProps> = ({ invoiceId, onClose }) =
             <select 
               value={invoice.clientId} 
               onChange={e => setInvoice(prev => ({...prev, clientId: e.target.value}))}
-              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all mb-2"
+              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 outline-none transition-all mb-2"
+              style={{ '--tw-ring-color': accentColor } as React.CSSProperties}
             >
               <option value="">Select Client</option>
               {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
             {invoice.clientId && (
-              <div className="text-sm text-gray-600 pl-1">
+              <div className="text-sm text-gray-600 pl-1 whitespace-pre-wrap">
                 {getClientDetails()?.address}
               </div>
             )}
@@ -192,7 +222,7 @@ const InvoiceBuilder: React.FC<InvoiceBuilderProps> = ({ invoiceId, onClose }) =
                   type="date"
                   value={invoice.date}
                   onChange={e => setInvoice(prev => ({...prev, date: e.target.value}))}
-                  className="w-full p-2 border-b border-gray-200 focus:border-indigo-500 outline-none bg-transparent"
+                  className="w-full p-2 border-b border-gray-200 outline-none bg-transparent"
                 />
              </div>
              <div>
@@ -201,7 +231,7 @@ const InvoiceBuilder: React.FC<InvoiceBuilderProps> = ({ invoiceId, onClose }) =
                   type="date"
                   value={invoice.dueDate}
                   onChange={e => setInvoice(prev => ({...prev, dueDate: e.target.value}))}
-                  className="w-full p-2 border-b border-gray-200 focus:border-indigo-500 outline-none bg-transparent"
+                  className="w-full p-2 border-b border-gray-200 outline-none bg-transparent"
                 />
              </div>
              <div>
@@ -209,9 +239,23 @@ const InvoiceBuilder: React.FC<InvoiceBuilderProps> = ({ invoiceId, onClose }) =
                 <select
                   value={invoice.status}
                   onChange={e => setInvoice(prev => ({...prev, status: e.target.value as InvoiceStatus}))}
-                   className="w-full p-2 border-b border-gray-200 focus:border-indigo-500 outline-none bg-transparent"
+                   className="w-full p-2 border-b border-gray-200 outline-none bg-transparent"
                 >
                   {Object.values(InvoiceStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+             </div>
+             <div>
+                <label className="block text-xs uppercase tracking-wide text-gray-500 font-bold mb-2">Currency</label>
+                <select
+                  value={invoice.currency}
+                  onChange={e => setInvoice(prev => ({...prev, currency: e.target.value}))}
+                   className="w-full p-2 border-b border-gray-200 outline-none bg-transparent"
+                >
+                  <option value="USD">USD</option>
+                  <option value="EUR">EUR</option>
+                  <option value="GBP">GBP</option>
+                  <option value="INR">INR</option>
+                  <option value="CAD">CAD</option>
                 </select>
              </div>
           </div>
@@ -275,7 +319,8 @@ const InvoiceBuilder: React.FC<InvoiceBuilderProps> = ({ invoiceId, onClose }) =
           
           <button 
             onClick={handleAddItem}
-            className="mt-4 flex items-center gap-2 text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors no-print"
+            className="mt-4 flex items-center gap-2 text-sm font-medium hover:opacity-80 transition-colors no-print"
+            style={{ color: accentColor }}
           >
             <Plus size={16} />
             Add Line Item
@@ -315,7 +360,8 @@ const InvoiceBuilder: React.FC<InvoiceBuilderProps> = ({ invoiceId, onClose }) =
           <textarea 
             value={invoice.notes}
             onChange={e => setInvoice(prev => ({...prev, notes: e.target.value}))}
-            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all h-24 resize-none"
+            className="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg outline-none transition-all h-24 resize-none focus:ring-2"
+            style={{ '--tw-ring-color': accentColor } as React.CSSProperties}
             placeholder="Additional notes, payment terms..."
           />
         </div>
@@ -329,7 +375,7 @@ const InvoiceBuilder: React.FC<InvoiceBuilderProps> = ({ invoiceId, onClose }) =
               </div>
               <button 
                 onClick={handleGenerateEmail}
-                className="flex items-center gap-2 text-sm text-gray-600 hover:text-indigo-600 transition-colors border border-gray-200 rounded-md px-3 py-2 hover:border-indigo-200 bg-white"
+                className="flex items-center gap-2 text-sm text-gray-600 hover:text-indigo-600 transition-colors border border-gray-200 rounded-md px-3 py-2 bg-white"
               >
                 <Mail size={16} />
                 Draft Payment Reminder Email
@@ -358,7 +404,7 @@ const InvoiceBuilder: React.FC<InvoiceBuilderProps> = ({ invoiceId, onClose }) =
       {showAiModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 animate-in fade-in zoom-in duration-200">
-            <div className="flex items-center gap-3 mb-4 text-indigo-600">
+            <div className="flex items-center gap-3 mb-4" style={{ color: accentColor }}>
               <Wand2 className="w-6 h-6" />
               <h2 className="text-xl font-bold">Magic Fill Invoice</h2>
             </div>
@@ -366,7 +412,8 @@ const InvoiceBuilder: React.FC<InvoiceBuilderProps> = ({ invoiceId, onClose }) =
               Describe the work you did in plain English, and AI will automatically format it into line items.
             </p>
             <textarea
-              className="w-full h-32 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none resize-none mb-4 text-sm"
+              className="w-full h-32 p-3 border border-gray-300 rounded-lg focus:ring-2 outline-none resize-none mb-4 text-sm"
+              style={{ '--tw-ring-color': accentColor } as React.CSSProperties}
               placeholder="E.g. I did 15 hours of consulting at $80/hr, sold 2 software licenses for $500 each, and added a $50 setup fee."
               value={aiPrompt}
               onChange={e => setAiPrompt(e.target.value)}
@@ -381,7 +428,8 @@ const InvoiceBuilder: React.FC<InvoiceBuilderProps> = ({ invoiceId, onClose }) =
               <button 
                 onClick={handleAiParse}
                 disabled={loading || !aiPrompt.trim()}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                className="px-4 py-2 text-white rounded-lg hover:opacity-90 transition-colors disabled:opacity-50 flex items-center gap-2"
+                style={{ backgroundColor: accentColor }}
               >
                 {loading ? 'Processing...' : 'Generate Items'}
               </button>

@@ -32,6 +32,42 @@ export interface Invoice {
   taxRate: number; // Percentage
 }
 
+export interface AppSettings {
+  // Profile
+  companyName: string;
+  companyEmail: string;
+  companyAddress: string;
+  companyLogoUrl?: string;
+  
+  // Currency
+  currency: string;
+  currencySymbol: string;
+
+  // Sequence - Sales
+  invoicePrefix: string;
+  nextInvoiceNumber: number;
+
+  estimatePrefix: string;
+  nextEstimateNumber: number;
+
+  proformaPrefix: string;
+  nextProformaNumber: number;
+
+  salesReturnPrefix: string;
+  nextSalesReturnNumber: number;
+
+  // Sequence - Purchase
+  purchaseOrderPrefix: string;
+  nextPurchaseOrderNumber: number;
+
+  purchaseReturnPrefix: string;
+  nextPurchaseReturnNumber: number;
+
+  // Print / Appearance
+  accentColor: string; // hex code
+  showLogo: boolean;
+}
+
 // Helper types for AI
 export interface AIInvoiceExtraction {
   items: Array<{
