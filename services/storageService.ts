@@ -72,6 +72,7 @@ const initialSettings: AppSettings = {
 
   accentColor: '#4f46e5', // Indigo-600
   showLogo: true,
+  theme: 'light',
 };
 
 // --- Clients ---

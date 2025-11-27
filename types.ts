@@ -66,6 +66,7 @@ export interface AppSettings {
   // Print / Appearance
   accentColor: string; // hex code
   showLogo: boolean;
+  theme: 'light' | 'dark';
 }
 
 // Helper types for AI
