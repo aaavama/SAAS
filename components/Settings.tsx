@@ -1,7 +1,51 @@
 import React, { useState, useEffect } from 'react';
-import { Save, User, CreditCard, Printer, ListOrdered, Check } from 'lucide-react';
+import { Save, User, CreditCard, Printer, ListOrdered, Check, ChevronDown } from 'lucide-react';
 import { AppSettings } from '../types';
 import { getSettings, saveSettings } from '../services/storageService';
+
+interface SettingsSectionProps {
+  title: string;
+  icon: React.ReactNode;
+  headerColorClass: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}
+
+const SettingsSection: React.FC<SettingsSectionProps> = ({ 
+  title, 
+  icon, 
+  headerColorClass, 
+  children,
+  defaultOpen = false 
+}) => {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full p-6 border-b border-gray-50 bg-gray-50/50 flex items-center justify-between hover:bg-gray-50 transition-colors text-left"
+      >
+        <div className="flex items-center gap-3">
+          <div className={`p-2 rounded-lg ${headerColorClass}`}>
+            {icon}
+          </div>
+          <h3 className="font-semibold text-gray-800">{title}</h3>
+        </div>
+        <ChevronDown 
+          size={20} 
+          className={`text-gray-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} 
+        />
+      </button>
+      
+      {isOpen && (
+        <div className="border-t border-gray-50 animate-in fade-in slide-in-from-top-1 duration-200">
+           {children}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const Settings: React.FC = () => {
   const [settings, setSettings] = useState<AppSettings | null>(null);
@@ -70,16 +114,14 @@ const Settings: React.FC = () => {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 gap-8">
+      <div className="grid grid-cols-1 gap-6">
         
         {/* Profile Section */}
-        <section id="profile" className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-6 border-b border-gray-50 bg-gray-50/50 flex items-center gap-3">
-            <div className="p-2 bg-indigo-100 text-indigo-600 rounded-lg">
-              <User size={20} />
-            </div>
-            <h3 className="font-semibold text-gray-800">Business Profile</h3>
-          </div>
+        <SettingsSection 
+          title="Business Profile" 
+          icon={<User size={20} />} 
+          headerColorClass="bg-indigo-100 text-indigo-600"
+        >
           <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="col-span-2 md:col-span-1">
               <label className="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
@@ -109,16 +151,14 @@ const Settings: React.FC = () => {
               />
             </div>
           </div>
-        </section>
+        </SettingsSection>
 
         {/* Currency Section */}
-        <section id="currency" className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-6 border-b border-gray-50 bg-gray-50/50 flex items-center gap-3">
-             <div className="p-2 bg-emerald-100 text-emerald-600 rounded-lg">
-              <CreditCard size={20} />
-            </div>
-            <h3 className="font-semibold text-gray-800">Currency & Formats</h3>
-          </div>
+        <SettingsSection 
+          title="Currency & Formats" 
+          icon={<CreditCard size={20} />} 
+          headerColorClass="bg-emerald-100 text-emerald-600"
+        >
           <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Default Currency Code</label>
@@ -146,17 +186,14 @@ const Settings: React.FC = () => {
               />
             </div>
           </div>
-        </section>
+        </SettingsSection>
 
         {/* Sequence Section */}
-        <section id="sequence" className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-6 border-b border-gray-50 bg-gray-50/50 flex items-center gap-3">
-             <div className="p-2 bg-orange-100 text-orange-600 rounded-lg">
-              <ListOrdered size={20} />
-            </div>
-            <h3 className="font-semibold text-gray-800">Document Sequences</h3>
-          </div>
-          
+        <SettingsSection 
+          title="Document Sequences" 
+          icon={<ListOrdered size={20} />} 
+          headerColorClass="bg-orange-100 text-orange-600"
+        >
           <div className="p-6 space-y-8">
             {/* Sales Documents */}
             <div>
@@ -180,16 +217,14 @@ const Settings: React.FC = () => {
               </div>
             </div>
           </div>
-        </section>
+        </SettingsSection>
 
          {/* Print / Appearance Section */}
-         <section id="print" className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="p-6 border-b border-gray-50 bg-gray-50/50 flex items-center gap-3">
-             <div className="p-2 bg-pink-100 text-pink-600 rounded-lg">
-              <Printer size={20} />
-            </div>
-            <h3 className="font-semibold text-gray-800">Print & Appearance</h3>
-          </div>
+         <SettingsSection 
+          title="Print & Appearance" 
+          icon={<Printer size={20} />} 
+          headerColorClass="bg-pink-100 text-pink-600"
+        >
           <div className="p-6 space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-3">Brand Accent Color</label>
@@ -230,7 +265,7 @@ const Settings: React.FC = () => {
               </label>
             </div>
           </div>
-        </section>
+        </SettingsSection>
 
       </div>
     </div>
